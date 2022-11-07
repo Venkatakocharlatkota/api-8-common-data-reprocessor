@@ -1,0 +1,19 @@
+request.path.api2: api/commonRequestSub
+request.path.api5: orderPayload
+api2.host: api-2-common-cd-md-dev-gateway.ir-e1.cloudhub.io
+api5.host: api-5-common-cd-order-ticket-dev-gateway.ir-e1.cloudhub.io 
+api2.truststore.path: keystore/Holcim-Mule-dev-trustStore.ts
+api2.truststore.pwd: "![bR4VSKT/V2+cET+jONPIrg==]"
+api2.muleuser : holcimmuleuser
+api2.mulepassword : "![g1BKxm0GRCt6BHcaISZJBA==]"
+
+SQSTestQueueARN: "arn:aws:sqs:eu-west-1:379218615267:cd-mulesoft-dv-error-queue"
+SQSAccessKey: "AKIAVQSZQ3PR4HTQ5Q76"
+SQSSecretKey: "![3nvftpjYPhyfPX0dwhTVH0BMiqqAb38wk0b6bTeUyfF9vvfkXdLxTUUeTBJtWyd2]"
+SQSQueueURL: "https://sqs.eu-west-1.amazonaws.com/379218615267/cd-mulesoft-dv-error-queue"
+sqs.receive.frequency: "30"
+
+cloudhub.username: "Concrete-Direct-CICD"
+cloudhub.pwd: "![HGeEXUOYhl78axu8xp1wxek/R0SMQysWyGeyt4eApYA=]"
+cloudhub.env: "61093a8e-1745-49f7-ac2a-361e2f7d211c"
+cloudhub.domain: "api-2-common-cd-md-dev-gateway"

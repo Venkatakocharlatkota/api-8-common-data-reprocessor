@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:cloudhub="http://www.mulesoft.org/schema/mule/cloudhub" xmlns:secure-properties="http://www.mulesoft.org/schema/mule/secure-properties"
+	xmlns:sqs="http://www.mulesoft.org/schema/mule/sqs"
+	xmlns:tls="http://www.mulesoft.org/schema/mule/tls" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/tls http://www.mulesoft.org/schema/mule/tls/current/mule-tls.xsd
+http://www.mulesoft.org/schema/mule/sqs http://www.mulesoft.org/schema/mule/sqs/current/mule-sqs.xsd
+http://www.mulesoft.org/schema/mule/secure-properties http://www.mulesoft.org/schema/mule/secure-properties/current/mule-secure-properties.xsd
+http://www.mulesoft.org/schema/mule/cloudhub http://www.mulesoft.org/schema/mule/cloudhub/current/mule-cloudhub.xsd">
+	<http:request-config name="API-2_HTTP_Request_configuration" doc:name="HTTP Request configuration" doc:id="7d380b7c-8732-4487-9f17-97c65878bc38" responseTimeout="180000">
+		<http:request-connection protocol="HTTPS" host="${secure::api2.host}" >
+			<tls:context >
+				<tls:trust-store path="${secure::api2.truststore.path}" password="${secure::api2.truststore.pwd}" type="jks" insecure="true"/>
+			</tls:context>
+			<http:authentication >
+				<http:basic-authentication username="${secure::api2.muleuser}" password="${secure::api2.mulepassword}" />
+			</http:authentication>
+		</http:request-connection>
+	</http:request-config>
+	<sqs:config name="Amazon_SQS_Configuration" doc:name="Amazon SQS Configuration" doc:id="5a2d206c-b2c2-4d98-a9e0-38de35e43fea" >
+		<sqs:basic-connection testQueueArn="${secure::SQSTestQueueARN}" accessKey="${secure::SQSAccessKey}" secretKey="${secure::SQSSecretKey}" region="eu-west-1"/>
+	</sqs:config>
+	<secure-properties:config name="Secure_Properties_Config" doc:name="Secure Properties Config" doc:id="098719b6-829e-49e0-98e2-5d2f3854fc74" file="config-${mule.env}.yaml" key="${mule.key}" />
+	<global-property doc:name="Global Property" doc:id="130cd0c3-bb26-4295-a082-9605dbb706f9" name="mule.env" value="staging" />
+	<global-property doc:name="Global Property" doc:id="3160d62c-c6a5-49fc-af8e-886414dc2534" name="mule.key" value="yTSGsr08447UQmy8ZtfliMRRaiNz2021" />
+	<http:request-config name="API-5_HTTP_Request_configuration" doc:name="HTTP Request configuration" doc:id="c8338884-b27e-40c9-bc8e-89ed3a2f0822" >
+		<http:request-connection protocol="HTTPS" host="${secure::api5.host}">
+			<tls:context >
+				<tls:trust-store path="${secure::api2.truststore.path}" password="${secure::api2.truststore.pwd}" type="jks" insecure="true"/>
+			</tls:context>
+			<http:authentication >
+				<http:basic-authentication username="${secure::api2.muleuser}" password="${secure::api2.mulepassword}" />
+			</http:authentication>
+		</http:request-connection>
+	</http:request-config>
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="615ca966-234a-402d-8e1e-01af6df3dbd0" >
+		<http:listener-connection host="localhost" port="9081" />
+	</http:listener-config>
+	<cloudhub:config name="CloudHub_Config" doc:name="CloudHub Config" doc:id="5dcb54f0-37f9-406b-a76c-bbe9dff15906" >
+		<cloudhub:connection username="${secure::cloudhub.username}" password="${secure::cloudhub.pwd}" environment="${secure::cloudhub.env}"/>
+	</cloudhub:config>
+</mule>

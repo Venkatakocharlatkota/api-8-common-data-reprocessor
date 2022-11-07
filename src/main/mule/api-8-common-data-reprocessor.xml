@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:cloudhub="http://www.mulesoft.org/schema/mule/cloudhub" xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:sqs="http://www.mulesoft.org/schema/mule/sqs" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/sqs http://www.mulesoft.org/schema/mule/sqs/current/mule-sqs.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/cloudhub http://www.mulesoft.org/schema/mule/cloudhub/current/mule-cloudhub.xsd">
+	<flow name="api-8-common-data-reprocessorFlow" doc:id="fa9452cb-a48f-4c7d-b6a1-312b49de029b" >
+		<sqs:receivemessages doc:name="Receive messages" doc:id="b21e76dc-9b9a-49e3-9948-efc9c9f8f633" visibilityTimeout="60" config-ref="Amazon_SQS_Configuration" queueUrl="${secure::SQSQueueURL}" frequency="${secure::sqs.receive.frequency}" timeUnit="SECONDS"/>
+<!-- 		<http:listener doc:name="Listener" doc:id="a4506db6-75f6-4e5f-b7f5-a3ec55d67c30" config-ref="HTTP_Listener_config" path="/sqs"/>
+ -->		<logger level="INFO" doc:name="Logger" doc:id="ffbb6ad9-d4ba-41cb-91cf-14ab314d0b01" message="+++ API-8 Flow Started +++" />
+		<logger level="INFO" doc:name="Logger" doc:id="6a35f6d9-1b38-4572-9326-f2b6357df769" message="+++ SQS error data received #[payload] +++" />
+		<set-payload value='#[%dw 2.0&#10;output application/json&#10;var pay = read(payload, "application/json")&#10;---&#10;pay]' doc:name="Set Payload" doc:id="180f210d-15ce-4afd-b6e2-35099614f4eb" />
+		<logger level="INFO" doc:name="Logger" doc:id="6b332034-042d-4dc8-b3d0-28b7f6fe72a6" message="+++ After Converting payload to json format +++"/>
+		<ee:transform doc:name="Transform Message" doc:id="55d74e9d-8dfd-44f2-9863-2cad40c1895c" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload - "client_id" - "sourceSys" - "buisObj" - "msgIdentifier" - "systemIdentifier" - "vehicleId" - "request_id"]]></ee:set-payload>
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="sysIden" ><![CDATA[%dw 2.0
+output application/java
+---
+payload.systemIdentifier]]></ee:set-variable>
+				<ee:set-variable variableName="msgIden" ><![CDATA[payload.msgIdentifier]]></ee:set-variable>
+				<ee:set-variable variableName="client_id" ><![CDATA[payload.client_id]]></ee:set-variable>
+				<ee:set-variable variableName="sourceSys" ><![CDATA[payload.sourceSys]]></ee:set-variable>
+				<ee:set-variable variableName="buisObj" ><![CDATA[payload.buisObj]]></ee:set-variable>
+				<ee:set-variable variableName="vehicleId" ><![CDATA[payload.vehicleId]]></ee:set-variable>
+				<ee:set-variable variableName="request_id" ><![CDATA[payload.request_id]]></ee:set-variable>
+				<ee:set-variable variableName="router" ><![CDATA[%dw 2.0
+output application/java
+---
+if(payload.buisObj == "CustomerMaster") "MasterData"
+else if (payload.buisObj == "JobsiteMaster") "MasterData"
+else if (payload.buisObj == "ItemMaster") "MasterData"
+else if (payload.buisObj == "VehicleMaster") "MasterData"
+else if (payload.buisObj == "PlantMaster") "MasterData"
+else if (payload.buisObj == "OrderData") "Order/Ticket"
+else if (payload.buisObj == "TicketData") "Order/Ticket"
+else if (payload.buisObj == "ErrorReport") "Order/Ticket"
+else "Invalid Business Object"]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="e70a9950-68f9-411d-bc23-ee99e83e025e" message="+++ The System Identifier is #[vars.sysIden] and Message Identifier is #[vars.msgIden] and Message Type is #[vars.buisObj]" />
+		<logger level="DEBUG" doc:name="Logger" doc:id="2e6dd61a-39cd-47f3-8b7e-6c2e51335e83" message="+++ Final Payload after removing headers ---&gt; #[payload] +++" />
+		<choice doc:name="Choice" doc:id="16684856-288f-4aef-94b2-44e1084c6a2d" >
+			<when expression='#[vars.router == "MasterData"]'>
+				<logger level="INFO" doc:name="Logger" doc:id="b7f694fd-189e-45f2-a7a3-e129a5fa0fda" message="+++ Master data from queue being sent to API-2 +++"/>
+				<http:request method="PUT" doc:name="Request" doc:id="5d8f6012-ee5b-463e-a685-4e9ff730edb8" config-ref="API-2_HTTP_Request_configuration" path="/${secure::request.path.api2}">
+					<reconnect frequency="12000" count="5" />
+					<http:headers><![CDATA[#[output application/java
+---
+{
+	"sourceSys" : vars.sourceSys,
+	"systemIdentifier" : vars.sysIden,
+	"BuisnessObject" : vars.buisObj,
+	"messageIdentifier" : vars.msgIden,
+	"request_id" : vars.request_id,
+	"client_id" : vars.client_id
+}]]]></http:headers>
+				</http:request>
+				<logger level="INFO" doc:name="Logger" doc:id="ba24fdc5-bd33-4be0-ba76-a71c364cab05" message="+++ Successfully master data  posted to API 2 +++"/>
+			</when>
+			<when expression='#[vars.router == "Order/Ticket"]'>
+				<logger level="INFO" doc:name="Logger" doc:id="a9921d15-d87c-40d0-a0df-f93851a91179" message="+++ Order/Ticket data being sent to API-5 +++"/>
+				<http:request method="PUT" doc:name="Request" doc:id="4ca3db7e-4234-4bfe-a7b9-fea0b8c33b27" config-ref="API-5_HTTP_Request_configuration" path="/${secure::request.path.api5}">
+					<reconnect frequency="12000" count="5" />
+					<http:headers><![CDATA[#[output application/java
+---
+{
+	"sourceSys" : vars.sourceSys,
+	"systemIdentifier" : vars.sysIden,
+	"BuisnessObject" : vars.buisObj,
+	"messageIdentifier" : vars.msgIden,
+	"request_id" : vars.request_id,
+	"client_id" : vars.client_id
+}]]]></http:headers>
+				</http:request>
+				<logger level="INFO" doc:name="Logger" doc:id="8bcf0e35-8d26-4144-8d63-65af60496c54" message="+++ Successfully Order/Ticket data posted to API 5 +++" />
+			</when>
+			<otherwise >
+				<logger level="INFO" doc:name="Logger" doc:id="5fe5a9ad-8ae5-4d1a-9039-7ac4c6d5ad38" message="+++ Invalid Buisness Object #[vars.buisObj] +++"/>
+			</otherwise>
+		</choice>
+		<sqs:get-approximate-number-of-messages doc:name="Get approximate number of messages" doc:id="cd58f994-7809-496f-adff-e2fd6461a8b9" config-ref="Amazon_SQS_Configuration" queueUrl="${secure::SQSQueueURL}"/>
+		<logger level="INFO" doc:name="Logger" doc:id="5ed6b992-aaf0-4ac5-adb8-f860488025ae" message="+++ Message Count: #[payload] +++"/>
+		<logger level="INFO" doc:name="Logger" doc:id="8e18eff8-d59c-4834-a0ba-471fd75e9238" message="+++ API-8 flow ended +++"/>
+		<error-handler >
+			<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="9cc8a6c9-d3b5-4a2b-bd1e-92b2ff555031" when='#[error.description contains("failed with status code 422")]'>
+				<logger level="INFO" doc:name="Logger" doc:id="2c33f05b-25b3-44df-a6c4-adc3d486ff31" message="+++ Api-2 Validation error received +++" />
+				<logger level="INFO" doc:name="Logger" doc:id="81bdbb43-0266-4fb5-8d93-2facee56285e" message="+++ ERROR: Validation Error from CD. Error payload - #[payload] +++"/>
+				<logger level="INFO" doc:name="Logger" doc:id="80a2e3ce-6be3-4c55-bd00-d47b5b0d3474" message="+++ Sending Error Information via Email +++" />
+				<set-payload value='#[%dw 2.0&#10;output application/java&#10;---&#10;"Mule API Technical Error - Validation error occured in API-2 from CD API " ++ (vars.buisObj default "") ++ " ID: " ++ (payload.external_id default "") ++ " received through IDoc Number " ++ (vars.request_id default "")]' doc:name="Set Payload" doc:id="2b37775b-448c-4e19-a612-5bc9c220cc11" />
+				<logger level="INFO" doc:name="Logger" doc:id="02f1ee63-8b40-4de7-8ef0-1f7f28e1e76b" message="+++ #[payload] +++" />
+				<cloudhub:create-notification domain="${secure::cloudhub.domain}" doc:name="Create Notification" doc:id="84692e25-a51d-42df-8f64-0f5aceb35e86" config-ref="CloudHub_Config" priority="ERROR" />
+			</on-error-continue>
+			<on-error-propagate enableNotifications="false" logException="true" doc:name="On Error Propagate" doc:id="f944afcf-0586-4d7f-9f26-0f0553b67350" type="ANY">
+				<logger level="INFO" doc:name="Logger" doc:id="6c0d0d89-8999-409d-8566-8ad6c13e126f" message="+++ Error may occur in API-2 Connectivity (Most probably) or API-8 unexpected error +++"/>
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+</mule>
